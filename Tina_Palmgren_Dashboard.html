@@ -418,6 +418,10 @@
   .tier-label { font-size: 14px; font-weight: 800; letter-spacing: 0.03em; }
   .stat-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; }
   .month-meta .tier-badge .tier-label { font-size: 13px; }
+  .phase-head-badge { flex: 0 0 auto; margin-left: auto; }
+  .phase-head-badge + .phase-status { margin-left: 0; }
+  .phase-card:not(.collapsed) .phase-head-badge { display: none; }
+  @media (max-width: 720px) { .phase-head-badge { margin-left: 0; flex-basis: 100%; } }
 
 
   /* ---------- GOAL LINE (prototype) ---------- */
@@ -886,6 +890,21 @@
         const finished = card.classList.contains('complete');   // awarded when the phase ends
         const pct = parseFloat(val.textContent);
         const tier = finished ? tierFor(pct) : null;
+        // Header copy: shows on the folded bar so the result is visible without opening the phase.
+        const head = card.querySelector('.phase-head');
+        const status = head && head.querySelector('.phase-status');
+        let hb = head && head.querySelector('.phase-head-badge');
+        if (head && status) {
+          if (!tier && hb) { hb.remove(); hb = null; }
+          if (tier && !(hb && hb.dataset.tier === tier && hb.dataset.pct === String(pct))) {
+            if (hb) hb.remove();
+            hb = document.createElement('span');
+            hb.className = 'phase-head-badge';
+            hb.dataset.tier = tier; hb.dataset.pct = String(pct);
+            hb.appendChild(make(pct, { size: 40 }));
+            head.insertBefore(hb, status);
+          }
+        }
         const old = row.querySelector('.tier-badge');
         if (old && tier && old.dataset.tier === tier && old.dataset.pct === String(pct)) return;
         if (old) old.remove();
@@ -2023,7 +2042,7 @@
       const list = el('div', 'goal-list' + (isActive ? '' : ' done'));
       section.appendChild(list);
 
-      if (!setAreas.length) {
+      if (!setAreas.length && isActive) {
         const card = el('div', 'goal-card');
         card.appendChild(el('div', 'goal-empty', 'Your goals appear here after your setup session.'));
         list.appendChild(card);
@@ -2076,7 +2095,8 @@
         box.appendChild(top);
 
         const body = el('div', 'month-body');
-        body.appendChild(el('div', 'month-goals-label', 'Goals:'));
+        if (!setAreas.length) body.appendChild(el('div', 'goal-empty', 'Your goals appear here after your setup session.'));
+        else body.appendChild(el('div', 'month-goals-label', 'Goals:'));
         setAreas.forEach(area => {
           const raw = (((feed.disciplines || {})[phaseName] || {})[mip] || {})[area];
           const discs = (Array.isArray(raw) ? raw : (raw ? [raw] : [])).filter(Boolean);
@@ -2122,9 +2142,8 @@
       if (!feed || !pos) return;
       const first = Math.min(pos.month, Math.max(1, feed.firstMonth || monthForDate(feed.submitted) || 1));
       const hasGoals = Object.keys(feed.goals || {}).length > 0;
-      // Every started phase shows its block once it has something to show.
-      const show = startedPhases().filter(i => i === pos.phaseIdx ||
-        (hasGoals && (first <= i * 3 + 3 || Object.keys((feed.disciplines || {})[PHASES[i]] || {}).length)));
+      // Every phase the member has started shows its three months.
+      const show = startedPhases();
       const total = latestWeekTotal(pos.phaseIdx);
       const sig = (window.__phaseWeeks || []).map(w => (w || []).map(x => x && x.disciplines).join(',')).join('|');
       const key = pos.month + '|' + show.join('') + '|' + (hasGoals ? 1 : 0) + '|' + sig;
