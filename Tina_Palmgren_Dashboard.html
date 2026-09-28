@@ -2059,8 +2059,9 @@
         const earned = weeks.reduce((a, w) => a + w.total, 0);
         const possible = weeks.length * 42;
 
-        // A finished phase folds each month down to its title. Click to open.
-        const collapsible = !isActive;
+        // A month that has ended folds down to its title, in a finished phase and in the
+        // current phase alike. Only the month in progress stays open. Click a bar to open it.
+        const collapsible = !isActive || m < pos.month;
         const boxKey = idx + '|' + mip;
         const box = el('div', 'goal-card month-box' + (collapsible ? ' collapsible' + (openCards[boxKey] ? '' : ' collapsed') : ''));
         const top = el('div', 'goal-top month-top');
