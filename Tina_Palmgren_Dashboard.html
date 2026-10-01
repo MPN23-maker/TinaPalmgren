@@ -1879,7 +1879,7 @@
     // Sample goals appear only when a preview link asks for them: ?preview=sample
     const PREVIEW_SAMPLE = /[?&]preview=sample\b/.test(window.location.search);
 
-    const AREAS = ['Personal', 'Professional', 'Health', 'Wealth', 'Spiritual'];
+    const AREAS = ['Personal', 'Professional', 'Mental Health', 'Physical Health', 'Wealth', 'Spiritual'];
     const PHASES = ['Foundation', 'Credibility', 'Momentum', 'Growth'];
     const GLYPH = { reached: '\u2713', recovered: '\u21BB', missed: '\u2715', current: '\u25CF', future: '', unset: '\u00B7' };
     const LABEL = { reached: 'Reached', recovered: 'Recovered', missed: 'Missed', current: 'In progress', future: 'Upcoming', unset: 'Not tracked' };
@@ -1891,22 +1891,26 @@
       goals: {
         Personal: 'Take the family on a dream vacation',
         Professional: 'Add new clients through referrals',
-        Health: 'Feel pain free day to day',
+        'Mental Health': 'Feel calm and clear most days',
+        'Physical Health': 'Feel pain free day to day',
         Wealth: 'Cash positive with steady debt paydown',
         Spiritual: 'Attend services three times a month'
       },
       disciplines: {
         Foundation: { 3: {
           Personal: ['Review personal goals for 5 min', 'Outline a plan for today with 5 tasks'],
-          Professional: ['Update your LinkedIn profile'], Health: ['Stretching'],
+          Professional: ['Update your LinkedIn profile'], 'Mental Health': ['Silent meditation'],
+          'Physical Health': ['Stretching'],
           Wealth: ['Outline an itemized spending plan for today'],
           Spiritual: ['Write down 3 things you\u2019re grateful for today'] } },
         Credibility: {
           1: { Personal: ['Make your bed', 'Hydrate 20oz H\u2082O'], Professional: ['Follow up with 30 prospects or former clients'],
-               Health: ['Yoga or Pilates'], Wealth: ['Outline an itemized spending plan for today'],
+               'Mental Health': ['Guided visualization & breathwork'], 'Physical Health': ['Yoga or Pilates'],
+               Wealth: ['Outline an itemized spending plan for today'],
                Spiritual: ['Silent meditation'] },
           2: { Personal: ['Review personal goals for 5 min', 'Journal one page of thoughts'], Professional: ['Make 50 prospecting calls or send 50 messages'],
-               Health: ['Walk, Run, Bike, or Swim'], Wealth: ['Outline an itemized spending plan for today'],
+               'Mental Health': ['Journal one page of thoughts'], 'Physical Health': ['Walk, Run, Bike, or Swim'],
+               Wealth: ['Outline an itemized spending plan for today'],
                Spiritual: ['Guided visualization & breathwork'] }
         }
       }
