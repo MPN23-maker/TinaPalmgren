@@ -1786,7 +1786,9 @@
       ? Math.floor((Date.now() - new Date(data.startDate + 'T00:00:00')) / 86400000) + 1
       : data.daysElapsed;
 
-    const weekNum = Math.ceil(daysElapsed / 7);
+    // Real submitted weeks drive the week count, not raw calendar days, so a
+    // missed or late check-in never silently drifts the phase/month forward.
+    const weekNum = Math.max(1, weeklyData.length);
     const weekLabelEl = document.getElementById('foundationWeekLabel');
     if (weekLabelEl) weekLabelEl.textContent = 'Week ' + Math.min(weekNum, 13) + ' / 52';
 
@@ -1848,6 +1850,16 @@
     });
 
     renderChain(weeklyData);
+
+    // Feed the Goal Line's Weekly Progress rows and badges, the same way a
+    // member with a backfilled Foundation record already gets them.
+    const phaseWeeks = [[], [], [], []];
+    weeklyData.forEach((w, i) => {
+      const idx = Math.min(3, Math.floor(i / 13));
+      phaseWeeks[idx].push(w);
+    });
+    window.__phaseWeeks = phaseWeeks;
+    document.dispatchEvent(new CustomEvent('phaseweeks'));
   }
 
   function renderDashboard(data) {
