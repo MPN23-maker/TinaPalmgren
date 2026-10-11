@@ -2081,7 +2081,7 @@
         const boxKey = idx + '|' + mip;
         const box = el('div', 'goal-card month-box' + (collapsible ? ' collapsible' + (openCards[boxKey] ? '' : ' collapsed') : ''));
         const top = el('div', 'goal-top month-top');
-        top.appendChild(el('div', 'month-title' + (m === pos.month ? ' now' : ''), 'Month ' + mip));
+        top.appendChild(el('div', 'month-title' + (m === pos.month ? ' now' : ''), 'Month ' + m));
         if (weeks.length) {
           const meta = el('div', 'month-meta');
           const pct = possible ? earned / possible * 100 : 0;
