@@ -1182,6 +1182,14 @@
   }
 
   // Weekly check ins from the earlier feed and the new sheet, joined by week ending date.
+  function mpnWeekKey(v) {
+    // The Friday that ends the Saturday to Friday program week holding this date.
+    const d = new Date(String(v || '').slice(0, 10) + 'T00:00:00Z');
+    if (isNaN(d)) return '';
+    d.setUTCDate(d.getUTCDate() + ((5 - d.getUTCDay() + 7) % 7));
+    return d.toISOString().slice(0, 10);
+  }
+
   async function fetchWeeklyRows(name) {
     const grab = (url) => fetch(url).then(r => r.ok ? r.json() : []).catch(() => []);
     const jobs = [grab(OLD_FEED_URL + '?member=' + encodeURIComponent(name))];
@@ -1190,7 +1198,7 @@
     const byWeek = new Map();
     lists.forEach(rows => {
       if (!Array.isArray(rows)) return;
-      rows.forEach(r => { if (r && r.weekEnding) byWeek.set(String(r.weekEnding).slice(0, 10), r); });
+      rows.forEach(r => { if (r && r.weekEnding) byWeek.set(mpnWeekKey(r.weekEnding), r); });
     });
     return Array.from(byWeek.values()).sort((a, b) => String(a.weekEnding).localeCompare(String(b.weekEnding)));
   }
@@ -2141,8 +2149,8 @@
               const rows = await fetchWeeklyRows(name);
               if (Array.isArray(rows) && rows.length) {
                 // Hand-entered weeks win. Feed weeks they do not cover stay, sorted by date.
-                const covered = new Set(overrides.map(o => String(o.weekEnding).slice(0, 10)));
-                const newRows = rows.filter(r => !covered.has(String(r.weekEnding).slice(0, 10)));
+                const covered = new Set(overrides.map(o => mpnWeekKey(o.weekEnding)));
+                const newRows = rows.filter(r => !covered.has(mpnWeekKey(r.weekEnding)));
                 combined = overrides.concat(newRows)
                   .sort((a, b) => String(a.weekEnding).localeCompare(String(b.weekEnding)));
               }
@@ -2174,8 +2182,8 @@
               const rows = await fetchWeeklyRows(name);
               if (Array.isArray(rows) && rows.length) {
                 // Hand-entered weeks win. Feed weeks they do not cover stay, sorted by date.
-                const covered = new Set(LEGACY_HISTORY[name].map(o => String(o.weekEnding).slice(0, 10)));
-                const newRows = rows.filter(r => !covered.has(String(r.weekEnding).slice(0, 10)));
+                const covered = new Set(LEGACY_HISTORY[name].map(o => mpnWeekKey(o.weekEnding)));
+                const newRows = rows.filter(r => !covered.has(mpnWeekKey(r.weekEnding)));
                 combined = LEGACY_HISTORY[name].concat(newRows)
                   .sort((a, b) => String(a.weekEnding).localeCompare(String(b.weekEnding)));
               }
@@ -2631,13 +2639,39 @@
     }
 
     // The weeks of a phase, grouped by month. Phase weeks 1-4 are Month 1,
-    // 5-8 Month 2, 9-13 Month 3. Each week: its ending date and disciplines completed (0 to 42).
+    // 5-8 Month 2, 9-13 Month 3. After Foundation, a week's place comes from its date,
+    // counted from the phase start, so a duplicate or missing week never shifts the months.
+    // Each week: its ending date and disciplines completed (0 to 42).
     function monthWeeks(idx) {
       const weeks = (window.__phaseWeeks || [])[idx] || [];
       const out = { 1: [], 2: [], 3: [] };
+      const DAY = 86400000;
+      const keyOf = (v) => {
+        const d = new Date(String(v || '').slice(0, 10) + 'T00:00:00Z');
+        if (isNaN(d)) return '';
+        d.setUTCDate(d.getUTCDate() + ((5 - d.getUTCDay() + 7) % 7));
+        return d.toISOString().slice(0, 10);
+      };
+      // Credibility onward: place each week by its date from the phase start.
+      // Foundation keeps its original list order.
+      let start = NaN;
+      try {
+        const h = MEMBER_HISTORY[memberName];
+        if (h && h.foundationLocked && idx >= 1) start = Date.parse((h.credibilityStartDate || '2026-07-20') + 'T00:00:00Z') + (idx - 1) * 91 * DAY;
+      } catch (e) {}
+      const seen = new Set();
       weeks.forEach((w, k) => {
         if (!w || typeof w.disciplines !== 'number') return;
-        const wk = k + 1;
+        let wk = k + 1;
+        if (!isNaN(start)) {
+          const key = keyOf(w.weekEnding);
+          if (key) {
+            if (seen.has(key)) return;   // the same week twice counts once
+            seen.add(key);
+            const byDate = Math.floor((Date.parse(key + 'T00:00:00Z') - start) / (7 * DAY)) + 1;
+            if (byDate >= 1 && byDate <= 13) wk = byDate;
+          }
+        }
         out[wk <= 4 ? 1 : (wk <= 8 ? 2 : 3)].push({
           n: wk, weekEnding: w.weekEnding || '', total: Math.max(0, Math.min(42, Math.round(w.disciplines)))
         });
