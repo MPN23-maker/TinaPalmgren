@@ -2136,6 +2136,8 @@
       friday: wk.touchpoints.friday,
       disciplines: wk.dailyCounts.reduce((a, b) => a + b, 0),
       weekEnding: wk.weekEnding,
+      dailyCounts: wk.dailyCounts,
+      moodCount: (wk.dailyMoods || []).length,
       mood: wk.dailyMoods.slice().sort((a, b) =>
         wk.dailyMoods.filter(m => m === a).length - wk.dailyMoods.filter(m => m === b).length
       ).pop()
@@ -2293,7 +2295,44 @@
     return 0;
   }
 
+  // ---------- Star ratings (day based) ----------
+  // Every phase starts at 5 stars. Stars = 5 x percentage, rounded to the
+  // nearest half star, floor of 1. Only completed weeks count (7 days, 42
+  // disciplines each). A missed day is a day with no entry (count 0).
+  //   Procrastination = disciplines completed / 42 per week
+  //   Consistency     = days with 5 or 6 disciplines / days
+  //   Accountability  = days with an entry AND a mood / days
+  //   Structure       = days with an entry, a mood AND 5+ disciplines / days
+  function starsFromPct(p) {
+    return Math.max(1, Math.min(5, Math.round(Math.max(0, p) * 10) / 2));
+  }
+  function dayBasedStars(weeklyData) {
+    if (!weeklyData || !weeklyData.length) return { p: 5, c: 5, a: 5, s: 5 };
+    if (!weeklyData.every(w => Array.isArray(w.dailyCounts))) return null;
+    let days = 0, done = 0, strong = 0, accDays = 0, structDays = 0;
+    weeklyData.forEach(w => {
+      const c = w.dailyCounts;
+      const logged = c.filter(x => x > 0).length;
+      const strongDays = c.filter(x => x >= 5).length;
+      const moods = Math.min(w.moodCount || 0, logged);
+      const missingMood = logged - moods;
+      days += c.length;
+      done += c.reduce((a, b) => a + b, 0);
+      strong += strongDays;
+      accDays += moods;
+      structDays += Math.max(0, strongDays - missingMood);
+    });
+    return {
+      p: starsFromPct(done / (days * 6)),
+      c: starsFromPct(strong / days),
+      a: starsFromPct(accDays / days),
+      s: starsFromPct(structDays / days)
+    };
+  }
+
   function computeWeeklyStars(weeklyData, currentStreakDays, daysElapsed, disciplineCompletionPct) {
+    const dayStars = dayBasedStars(weeklyData);
+    if (dayStars) return dayStars;
     let touchpointsExpected = 0, touchpointsScheduled = 0, touchpointsAttended = 0;
     weeklyData.forEach(wk => {
       touchpointTypes.forEach(type => {
@@ -2524,20 +2563,33 @@
       chainLabelEl.textContent = 'Weekly Chain — Week ' + overallWeek + ' of 52';
     }
 
-    document.getElementById('disciplineValue').textContent = disciplineCompletionPct + '%';
-    document.getElementById('disciplineBar').style.width = disciplineCompletionPct + '%';
+    // Each phase scores only its own 13 weeks (weeks 1 to 13 Foundation,
+    // 14 to 26 Credibility, 27 to 39 Momentum), so no week counts in two phases.
+    const parts = [[], [], [], []];
+    weeklyData.forEach((w, i) => parts[Math.min(3, Math.floor(i / 13))].push(w));
+    function phasePct(ws, fallback) {
+      if (!ws.length || !ws.every(w => Array.isArray(w.dailyCounts))) return fallback;
+      const days = ws.length * 7;
+      const sum = ws.reduce((a, w) => a + w.dailyCounts.reduce((x, y) => x + y, 0), 0);
+      return Math.round((sum / days / 6) * 1000) / 10;
+    }
+    const fPct = phasePct(parts[0], disciplineCompletionPct);
+    document.getElementById('disciplineValue').textContent = fPct + '%';
+    document.getElementById('disciplineBar').style.width = fPct + '%';
 
-    const stars = computeWeeklyStars(weeklyData, currentStreakDays, daysElapsed, disciplineCompletionPct);
-    renderStars('miniStarsFoundation-p', stars.p, 13);
-    renderStars('miniStarsFoundation-c', stars.c, 13);
-    renderStars('miniStarsFoundation-a', stars.a, 13);
-    renderStars('miniStarsFoundation-s', stars.s, 13);
-
-    ['Credibility', 'Momentum', 'Growth'].forEach(phase => {
-      ['p', 'c', 'a', 's'].forEach(k => renderStars('miniStars' + phase + '-' + k, 0, 13));
+    ['Foundation', 'Credibility', 'Momentum', 'Growth'].forEach((phase, i) => {
+      const ws = parts[i];
+      const st = ws.length ? computeWeeklyStars(ws, ws.length * 7, ws.length * 7, phasePct(ws, disciplineCompletionPct)) : null;
+      ['p', 'c', 'a', 's'].forEach(k => renderStars('miniStars' + phase + '-' + k, st ? st[k] : 0, 13));
+      if (i === 1) {
+        const v = document.getElementById('disciplineValueCredibility');
+        const b = document.getElementById('disciplineBarCredibility');
+        if (v) v.textContent = ws.length ? phasePct(ws, '') + '%' : '\u2014';
+        if (b && ws.length) b.style.width = phasePct(ws, 0) + '%';
+      }
     });
 
-    renderChain(weeklyData);
+    renderFullYearChain(parts[0], parts[1].length ? parts[1] : null, parts[2].length ? parts[2] : null, null);
 
     // Feed the Goal Line's Weekly Progress rows and badges, the same way a
     // member with a backfilled Foundation record already gets them.
